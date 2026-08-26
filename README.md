@@ -28,6 +28,15 @@
 当前目录里的 `weights.bin` 是 TDL2048 4x6patt 转换版；如需换回旧的自训权重，
 把对应权重文件复制为 `weights.bin` 即可，例如 `Copy-Item weights_4096_10m.bin weights.bin -Force`。
 
+### 权重来源与许可
+
+- 权重训练自 **moporgic/TDL2048** 项目（"The Most Efficient Temporal Difference Learning Framework for 2048"）：
+  GitHub <https://github.com/moporgic/TDL2048> · Hugging Face 模型卡 <https://huggingface.co/moporgic/TDL2048>
+- 上游模型（TDL2048+ 4x6patt：4 张 16⁶ 表 + 32 特征）遵循 **MIT License**，版权归上游作者；
+  本仓库将其封装为 `TDLG` 二进制格式随项目分发（`dist/weights.bin.json` 分块部署版同源），
+  按 MIT 许可条款保留上游版权声明与许可文本
+- 本仓库其余代码同样采用 **MIT License**（见 `LICENSE`），与上游许可兼容
+
 ```powershell
 # 从训练目录复制（或从云服务器下载后放这里），把路径换成你的训练权重
 Copy-Item <训练权重路径> .\weights.bin
