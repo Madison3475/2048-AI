@@ -760,3 +760,36 @@ h1 {
     font-size: 11px;
   }
 }
+
+/* ---------- AI 权重加载进度条 ---------- */
+.ai-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  margin: 10px auto 0;
+}
+
+.ai-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #1b232b;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.ai-progress-bar {
+  width: 0%;
+  height: 100%;
+  border-radius: 3px;
+  background: #62d9a5;
+  transition: width 220ms ease;
+}
+
+.ai-progress-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

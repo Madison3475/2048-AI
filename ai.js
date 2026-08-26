@@ -304,7 +304,7 @@
     }
   }
 
-  async function load(url) {
+  async function load(url, onProgress) {
     let ab = null;
     try {
       const res = await fetch(url);
@@ -324,11 +324,16 @@
     const base = url.substring(0, url.lastIndexOf('/') + 1);
     // 分批并发下载（每批 6 个），避免大量并行大连接被中途掐断
     const CHUNK_CONCURRENCY = 6;
+    let doneChunks = 0;
     const bufs = [];
     for (let i = 0; i < manifest.files.length; i += CHUNK_CONCURRENCY) {
       const batch = manifest.files.slice(i, i + CHUNK_CONCURRENCY);
       const arr = await Promise.all(batch.map(function (f) {
-        return fetchChunk(base + f, 3);
+        return fetchChunk(base + f, 3).then(function (b) {
+          doneChunks++;
+          if (onProgress) onProgress(doneChunks, manifest.files.length);
+          return b;
+        });
       }));
       for (const b of arr) bufs.push(b);
     }
@@ -365,6 +370,9 @@ function initController(api, doc, win) {
   const hintBtn = doc.getElementById('ai-hint-btn');
   const autoBtn = doc.getElementById('ai-auto-btn');
   const statusEl = doc.getElementById('ai-status');
+  const progressEl = doc.getElementById('ai-progress');
+  const progressBar = doc.getElementById('ai-progress-bar');
+  const progressLabel = doc.getElementById('ai-progress-label');
   if (!hintBtn || !autoBtn || !statusEl) return;
 
   const WEIGHTS_URL = 'weights.bin';
@@ -372,6 +380,17 @@ function initController(api, doc, win) {
   let loading = false;
   let autoTimer = null;
   let statusTimer = null;
+
+  function setProgress(visible, done, total) {
+    if (!progressEl) return;
+    progressEl.classList.toggle('hidden', !visible);
+    if (!visible) return;
+    const pct = total ? Math.round(done / total * 100) : 0;
+    progressBar.style.width = pct + '%';
+    progressLabel.textContent = done + ' / ' + total + '（' + pct + '%）';
+    progressEl.setAttribute('aria-valuenow', String(pct));
+    progressEl.setAttribute('aria-valuetext', done + ' / ' + total + ' 分块');
+  }
 
   function setStatus(text) {
     statusEl.textContent = text || '';
@@ -393,11 +412,15 @@ function initController(api, doc, win) {
     loading = true;
     setStatus('AI 权重加载中…');
     try {
-      const info = await api.load(WEIGHTS_URL);
+      const info = await api.load(WEIGHTS_URL, function (done, total) {
+        setProgress(true, done, total);
+      });
       loaded = true;
+      setProgress(false);
       setStatus('AI 权重已加载（' + (info.format === 'TDLG' ? 'TDL2048 模型' : '本地模型') + '）');
       return true;
     } catch (err) {
+      setProgress(false);
       fail(err);
       return false;
     } finally {

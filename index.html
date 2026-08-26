@@ -76,6 +76,11 @@
 
 <!-- AI 状态提示 -->
     <p class="ai-status hidden" id="ai-status" role="status"></p>
+<!-- AI 权重下载进度条 -->
+    <div class="ai-progress hidden" id="ai-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="ai-progress-track"><div class="ai-progress-bar" id="ai-progress-bar"></div></div>
+      <span class="ai-progress-label" id="ai-progress-label"></span>
+    </div>
 
 <!-- 棋盘区：背景格 + 方块层 + 结算弹窗 + 排行榜弹窗 -->
     <section class="board-wrap">
