@@ -286,6 +286,24 @@
     return head === 'NT2048' || head.indexOf('TDLG') === 0;
   }
 
+  /* 下载单个分块：失败自动重试（大文件下载易被中间网络中断） */
+  async function fetchChunk(url, attempts) {
+    for (let i = 1; i <= attempts; i++) {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('分块 HTTP ' + r.status);
+        const ct = (r.headers.get('content-type') || '').toLowerCase();
+        if (ct.indexOf('text/html') !== -1) {
+          throw new Error('分块返回了 HTML，权重分块没有上传成功');
+        }
+        return await r.arrayBuffer();
+      } catch (err) {
+        if (i === attempts) throw err;
+        await new Promise(function (resolve) { setTimeout(resolve, 400 * i); });
+      }
+    }
+  }
+
   async function load(url) {
     let ab = null;
     try {
@@ -304,16 +322,16 @@
     if (!mr.ok) throw new Error('HTTP ' + mr.status + '：' + url);
     const manifest = await mr.json();
     const base = url.substring(0, url.lastIndexOf('/') + 1);
-    const bufs = await Promise.all(manifest.files.map(async function (f) {
-      const r = await fetch(base + f);
-      if (!r.ok) throw new Error('分块 ' + f + ' HTTP ' + r.status);
-      const buf = await r.arrayBuffer();
-      const ct = (r.headers.get('content-type') || '').toLowerCase();
-      if (ct.indexOf('text/html') !== -1) {
-        throw new Error('分块 ' + f + ' 返回了 HTML，权重分块没有上传成功');
-      }
-      return buf;
-    }));
+    // 分批并发下载（每批 6 个），避免大量并行大连接被中途掐断
+    const CHUNK_CONCURRENCY = 6;
+    const bufs = [];
+    for (let i = 0; i < manifest.files.length; i += CHUNK_CONCURRENCY) {
+      const batch = manifest.files.slice(i, i + CHUNK_CONCURRENCY);
+      const arr = await Promise.all(batch.map(function (f) {
+        return fetchChunk(base + f, 3);
+      }));
+      for (const b of arr) bufs.push(b);
+    }
     const out = new Uint8Array(manifest.totalBytes);
     let off = 0;
     for (const b of bufs) {
@@ -359,15 +377,14 @@ function initController(api, doc, win) {
     statusEl.textContent = text || '';
     statusEl.classList.toggle('hidden', !text);
     clearTimeout(statusTimer);
-    if (text && text.indexOf('失败') === -1 && text.indexOf('请通过') === -1) {
+    if (text && text.indexOf('失败') === -1 && text.indexOf('请通过') === -1
+        && text.indexOf('加载中') === -1 && text.indexOf('托管中') === -1) {
       statusTimer = setTimeout(function () { setStatus(''); }, 4000);
     }
   }
 
   function fail(err) {
-    setStatus('AI 权重加载失败：' + (err && err.message ? err.message : String(err)));
-    hintBtn.disabled = true;
-    autoBtn.disabled = true;
+    setStatus('AI 权重加载失败：' + (err && err.message ? err.message : String(err)) + '（点 AI 提示可重试）');
   }
 
   async function ensureLoaded() {
