@@ -1,9 +1,7 @@
 # 构建产物：node tools/deploy_build.js 可随时重建，无需入库
 dist/
 
-# 权重文件 268 MB，超过 GitHub 100 MB 单文件上限；
-# 如需版本管理用 Git LFS 或云盘备份，不要直接提交
-weights.bin
+# 权重文件通过 Git LFS 管理（见 .gitattributes），与代码一起入库
 
 # Cloudflare 部署 zip
 2048-cloudflare.zip

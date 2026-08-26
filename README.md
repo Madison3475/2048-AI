@@ -16,9 +16,9 @@
 
 ## AI 模式（使用训练权重）
 
-> **权重不在本 Git 仓库中**：仓库只包含代码，268 MB 的 `weights.bin` 体积过大
-> （超过 GitHub 单文件 100 MB 上限），请从本仓库 Releases 页的 Assets 下载对应文件，
-> 或参考下文从训练目录/云服务器复制到项目根目录。
+> **权重通过 Git LFS 管理**：268 MB 的 `weights.bin` 随仓库一起版本化
+> （`.gitattributes` 中已注册 LFS），clone 时默认拉取；
+> 只想快速克隆代码可跳过：`GIT_LFS_SKIP_SMUDGE=1 git clone <仓库地址>`。
 
 训练好的权重放在项目根目录 `weights.bin` 即可启用 AI。支持两种格式：
 
