@@ -1,0 +1,136 @@
+<!-- ============================================================
+     2048 —— 页面结构
+     纯静态页面：index.html + style.css + game.js，无任何依赖。
+     ============================================================ -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2048</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+<!-- 顶栏：标题 / 计分板 / 操作按钮 -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <i class="l2"></i><i class="l4"></i>
+          <i class="l8"></i><i class="l16"></i>
+        </span>
+        <h1>2048</h1>
+      </div>
+
+      <div class="controls">
+        <div class="score-row">
+          <div class="score-box">
+            <span class="score-label">SCORE</span>
+            <strong class="score-value" id="score">0</strong>
+          </div>
+          <div class="score-box">
+            <span class="score-label">BEST</span>
+            <strong class="score-value" id="best">0</strong>
+          </div>
+        </div>
+        <div class="icon-row">
+          <button class="icon-btn" id="new-btn" type="button" title="新游戏" aria-label="新游戏">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14"></path>
+              <path d="M12 5v14"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="undo-btn" type="button" title="撤销" aria-label="撤销">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="leaderboard-btn" type="button" title="排行榜" aria-label="排行榜">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+              <path d="M4 22h16"></path>
+              <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="sound-btn" type="button" title="音效" aria-label="音效开关">
+            <svg id="icon-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+              <path d="M16 9a5 5 0 0 1 0 6"></path>
+              <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
+            </svg>
+            <svg id="icon-muted" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+              <path d="m22 9-6 6"></path>
+              <path d="m16 9 6 6"></path>
+            </svg>
+          </button>
+          <button class="icon-btn ai-btn" id="ai-hint-btn" type="button" title="AI 提示：走出权重推荐的一步" aria-label="AI 提示">AI 提示</button>
+          <button class="icon-btn ai-btn" id="ai-auto-btn" type="button" title="AI 托管：自动游玩" aria-label="AI 托管">AI 托管</button>
+        </div>
+      </div>
+    </header>
+
+<!-- AI 状态提示 -->
+    <p class="ai-status hidden" id="ai-status" role="status"></p>
+
+<!-- 棋盘区：背景格 + 方块层 + 结算弹窗 + 排行榜弹窗 -->
+    <section class="board-wrap">
+      <div class="board" id="board" aria-label="2048 游戏棋盘">
+        <div class="cells" id="cells"></div>
+        <div class="tiles" id="tiles"></div>
+      </div>
+
+<!-- 游戏结束 / 达成 2048 的结算弹窗 -->
+      <div class="overlay hidden" id="overlay">
+        <div class="overlay-panel" role="dialog" aria-modal="true">
+          <h2 id="overlay-title">游戏结束</h2>
+          <p id="overlay-sub">得分 0</p>
+          <form class="save-form hidden" id="save-form">
+            <input class="name-input" id="player-name" type="text" maxlength="12" placeholder="输入名字" autocomplete="off">
+            <button class="primary-btn" type="submit">保存成绩</button>
+          </form>
+          <div class="overlay-actions">
+            <button class="ghost-btn" id="overlay-continue" type="button">继续挑战</button>
+            <button class="primary-btn" id="overlay-new" type="button">再来一局</button>
+          </div>
+        </div>
+      </div>
+<!-- 排行榜弹窗 -->
+      <div class="overlay leaderboard-overlay hidden" id="leaderboard-overlay">
+        <div class="overlay-panel leaderboard-panel" role="dialog" aria-modal="true">
+          <div class="leaderboard-head">
+            <h2>排行榜</h2>
+            <button class="icon-btn" id="leaderboard-close" type="button" title="关闭" aria-label="关闭排行榜">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
+            </button>
+          </div>
+          <ol class="leaderboard-list" id="leaderboard-list"></ol>
+          <p class="leaderboard-empty" id="leaderboard-empty">暂无记录</p>
+          <button class="ghost-btn" id="leaderboard-done" type="button">知道了</button>
+        </div>
+      </div>
+    </section>
+
+<!-- 页脚 -->
+    <footer class="footer">
+      <span class="footer-mark" aria-hidden="true">
+        <i class="l2"></i><i class="l4"></i>
+        <i class="l8"></i><i class="l16"></i>
+      </span>
+      <span>2048</span>
+    </footer>
+  </main>
+
+<!-- AI 推理（需在 weights.bin 放训练好的权重） -->
+  <script src="ai.js"></script>
+<!-- 游戏逻辑（原生 JS） -->
+  <script src="game.js"></script>
+</body>
+</html>

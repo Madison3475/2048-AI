@@ -1,0 +1,8 @@
+# 统一换行符：代码文件一律 LF，避免 Windows 提交时 CRLF 差异
+* text=auto
+*.js   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.ps1  text eol=crlf

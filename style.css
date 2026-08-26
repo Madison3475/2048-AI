@@ -1,0 +1,762 @@
+/* ============================================================
+ * 2048 —— 样式表
+ * 深色主题 + 网格纹理背景，全部样式原生实现。
+ * ============================================================ */
+:root {
+  --bg: #0c1014;
+  --panel: #151c22;
+  --panel-2: #1c242c;
+  --cell-bg: #1b232b;
+  --line: rgba(255, 255, 255, 0.08);
+  --ink: #f2f6f8;
+  --muted: #8a97a2;
+  --gap: 12px;
+}
+
+/* 全局重置 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* 页面布局：居中容器、字体与渐变背景 */
+body {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 30px;
+  color: var(--ink);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background:
+    linear-gradient(180deg, #12181e 0%, #0b0f13 100%);
+  overflow-x: hidden;
+}
+
+/* 背景网格纹理（不拦截点击） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 92%);
+}
+
+/* 整体外壳：宽度限制，小屏下自适应 */
+.shell {
+  width: min(92vw, 520px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶栏：标题 + 计分板 + 操作按钮 */
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+/* 品牌区：Logo 与标题 */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Logo：由 2/4/8/16 四个小色块拼成 */
+.logo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  width: 34px;
+  height: 34px;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+}
+
+.logo i {
+  border-radius: 3px;
+}
+
+/* Logo 色块配色 */
+.l2 { background: #d9e3eb; }
+.l4 { background: #bfe6d7; }
+.l8 { background: #ffb26b; }
+.l16 { background: #ff6f8f; }
+
+h1 {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+  color: #f7fafb;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0;
+}
+
+/* 右侧控制区 */
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.score-row {
+  display: flex;
+  gap: 10px;
+}
+
+/* 计分板卡片 */
+.score-box {
+  min-width: 108px;
+  padding: 9px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.score-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.score-value {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  transition: transform 160ms ease;
+}
+
+/* 加分时的缩放动画类（由 JS 添加） */
+.score-value.bump {
+  transform: scale(1.08);
+}
+
+.score-value.long {
+  font-size: 17px;
+}
+
+.icon-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* 图标按钮（新游戏/撤销/排行榜/音效） */
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: #c6d0d8;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 100ms ease, border-color 150ms ease;
+}
+
+.icon-btn:hover {
+  background: #202a33;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.icon-btn:active {
+  transform: scale(0.94);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid #62d9a5;
+  outline-offset: 2px;
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+  transform: none;
+}
+
+/* 棋盘容器（相对定位，供弹窗叠加） */
+.board-wrap {
+  position: relative;
+}
+
+/* 棋盘：正方形、圆角、禁止长按/滚动 */
+.board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: var(--gap);
+  background: #11171d;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow:
+    0 26px 70px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 背景格层：4×4 网格 */
+.cells {
+  position: absolute;
+  inset: var(--gap);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+}
+
+.cell {
+  border-radius: 12px;
+  background: var(--cell-bg);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 方块层：绝对定位，方块用 transform 移动 */
+.tiles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 单个方块：位移动画由 transform 完成 */
+.tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--cell);
+  height: var(--cell);
+  transition: transform 140ms cubic-bezier(0.25, 0.8, 0.3, 1);
+  will-change: transform;
+}
+
+/* 方块数字面：缩放/透明度动画载体 */
+.tile-face {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--tile-bg);
+  color: var(--tile-color);
+  font-weight: 800;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.1),
+    0 4px 14px rgba(0, 0, 0, 0.24);
+  transition: opacity 110ms ease, transform 110ms ease;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.tile-face.len-1,
+.tile-face.len-2 {
+  font-size: 42px;
+}
+
+.tile-face.len-3 {
+  font-size: 32px;
+}
+
+.tile-face.len-4 {
+  font-size: 24px;
+}
+
+.tile-face.len-5 {
+  font-size: 19px;
+}
+
+.tile-face.len-6 {
+  font-size: 15px;
+}
+
+.tile.spawn .tile-face {
+  animation: spawn 180ms ease-out;
+}
+
+.tile.merge .tile-face {
+  animation: merge 220ms ease;
+  z-index: 2;
+}
+
+.tile.dying .tile-face {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+/* 方块数值配色（2 ~ 2048 专属色，超出用 .t-super） */
+.t-2 { --tile-bg: #d9e3eb; --tile-color: #19232c; }
+.t-4 { --tile-bg: #bfe6d7; --tile-color: #0f392d; }
+.t-8 { --tile-bg: #ffb26b; --tile-color: #3b210b; }
+.t-16 { --tile-bg: #ff8d63; --tile-color: #3a1706; }
+.t-32 { --tile-bg: #ff6f8f; --tile-color: #3b0719; }
+.t-64 { --tile-bg: #e85d6f; --tile-color: #ffffff; }
+.t-128 { --tile-bg: #b995ff; --tile-color: #241244; }
+.t-256 { --tile-bg: #62d7ff; --tile-color: #062d3d; }
+.t-512 { --tile-bg: #4ce3a3; --tile-color: #073522; }
+.t-1024 { --tile-bg: #ffd166; --tile-color: #3a2800; }
+.t-2048 { --tile-bg: #ff5d8f; --tile-color: #ffffff; }
+
+.t-super {
+  --tile-bg: #2b3640;
+  --tile-color: #eef4f7;
+}
+
+/* 新方块出现的动画 */
+@keyframes spawn {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 合并时的「弹跳」动画 */
+@keyframes merge {
+  0% {
+    transform: scale(0.5);
+  }
+  55% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 结算/排行榜弹窗遮罩 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 14, 18, 0.78);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  border-radius: 20px;
+  z-index: 10;
+  animation: fade-in 240ms ease;
+}
+
+/* 弹窗面板 */
+.overlay-panel {
+  max-width: 78%;
+  padding: 26px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  background: #151c22;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.overlay-panel h2 {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.overlay-panel p {
+  font-size: 15px;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.overlay-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* 按钮样式：ghost 描边按钮与 primary 主按钮 */
+.ghost-btn,
+.primary-btn {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0;
+  transition: transform 100ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.ghost-btn {
+  background: transparent;
+  color: #c6d0d8;
+  border: 1px solid var(--line);
+}
+
+.ghost-btn:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.primary-btn {
+  background: #62d9a5;
+  color: #09231a;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.primary-btn:hover {
+  background: #74e3b2;
+}
+
+.ghost-btn:active,
+.primary-btn:active {
+  transform: scale(0.96);
+}
+
+/* 页脚 */
+.footer {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #5d6973;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.footer-mark {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  width: 14px;
+  height: 14px;
+}
+
+.footer-mark i {
+  border-radius: 2px;
+}
+
+/* 通用隐藏类 */
+.hidden {
+  display: none !important;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 移动端适配：窄屏下压缩字号与间距 */
+@media (max-width: 460px) {
+  body {
+    padding: 18px 12px 24px;
+  }
+
+  .shell {
+    width: min(94vw, 420px);
+  }
+
+  h1 {
+    font-size: 38px;
+  }
+
+  .logo {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .score-box {
+    min-width: 86px;
+    padding: 8px 10px;
+  }
+
+  .score-value {
+    font-size: 19px;
+  }
+
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .tile-face.len-1,
+  .tile-face.len-2 {
+    font-size: 36px;
+  }
+
+  .tile-face.len-3 {
+    font-size: 28px;
+  }
+
+  .tile-face.len-4 {
+    font-size: 21px;
+  }
+
+  .tile-face.len-5 {
+    font-size: 17px;
+  }
+
+  .tile-face.len-6 {
+    font-size: 13px;
+  }
+}
+
+/* 系统偏好「减少动效」时关闭动画 */
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .tile-face,
+  .score-value {
+    transition: none;
+  }
+
+  .tile.spawn .tile-face,
+  .tile.merge .tile-face,
+  .overlay {
+    animation: none;
+  }
+}
+
+
+/* 游戏结束后的成绩保存表单 */
+.save-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.save-form .primary-btn {
+  width: 100%;
+}
+
+.name-input {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #10161b;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  letter-spacing: 0;
+}
+
+.name-input:focus {
+  border-color: #62d9a5;
+  box-shadow: 0 0 0 3px rgba(98, 217, 165, 0.15);
+}
+
+.name-input::placeholder {
+  color: #5d6973;
+}
+
+/* ---------- 排行榜 ---------- */
+.leaderboard-overlay {
+  z-index: 20;
+}
+
+.leaderboard-panel {
+  width: min(88%, 380px);
+  max-width: 88%;
+  padding: 22px;
+  align-items: stretch;
+  gap: 14px;
+  text-align: left;
+}
+
+.leaderboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.leaderboard-head h2 {
+  font-size: 24px;
+}
+
+.leaderboard-head .icon-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.leaderboard-head .icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.leaderboard-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* 排行榜单行：名次 / 名字 / 分数 / 日期 */
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: #1b232b;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.leaderboard-rank {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #242d35;
+  color: #9aa7b1;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* 前三名的名次徽章配色 */
+.leaderboard-row.top .leaderboard-rank {
+  color: #12231a;
+}
+
+.leaderboard-row.top-1 .leaderboard-rank {
+  background: #ffd166;
+}
+
+.leaderboard-row.top-2 .leaderboard-rank {
+  background: #c9d4dc;
+}
+
+.leaderboard-row.top-3 .leaderboard-rank {
+  background: #e8a06c;
+}
+
+.leaderboard-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #62d9a5;
+}
+
+.leaderboard-meta {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-empty {
+  padding: 18px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.leaderboard-panel .ghost-btn {
+  align-self: center;
+  min-width: 120px;
+}
+
+@media (max-width: 460px) {
+  .leaderboard-panel {
+    width: 92%;
+  }
+
+  .leaderboard-row {
+    grid-template-columns: 30px 1fr auto;
+    gap: 8px;
+  }
+
+  .leaderboard-meta {
+    display: none;
+  }
+}
+
+/* ---------- AI 按钮与状态 ---------- */
+.ai-btn {
+  min-width: 58px;
+  width: auto;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.ai-btn:hover {
+  color: #ffffff;
+}
+
+.ai-btn.active {
+  background: #62d9a5;
+  border-color: #62d9a5;
+  color: #0c1014;
+}
+
+.ai-status {
+  margin: 10px auto 0;
+  max-width: 480px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 460px) {
+  .ai-btn {
+    min-width: 46px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+}
