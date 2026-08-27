@@ -803,10 +803,9 @@
     if (rate >= 70) parts.push('AI 推荐步吻合率 ' + rate + '%，与最优策略高度一致。');
     else if (rate >= 50) parts.push('AI 推荐步吻合率 ' + rate + '%，整体方向正确，步序上仍有优化空间。');
     else parts.push('AI 推荐步吻合率 ' + rate + '%，与最优策略差距较大，请重点参考下方关键失误。');
-    const lossPct = Math.round(r.lossSum / Math.max(1, r.gainSum) * 100);
     if (r.faults.length) {
       const top = r.faults[0];
-      parts.push('最大失误在第 ' + top.step + ' 步（机会损失约 ' + Math.round(top.loss) + ' 分），累计机会损失占得分 ' + lossPct + '%。');
+      parts.push('最大失误在第 ' + top.step + ' 步（机会损失约 ' + Math.round(top.loss) + ' 分），累计机会损失约 ' + Math.round(r.lossSum) + ' 分。');
     } else {
       parts.push('全程几乎无明显失误，节奏控制极佳！');
     }
