@@ -117,6 +117,8 @@ cd dist && npx wrangler pages deploy . --project-name 2048
 | `ai.js` | AI 推理引擎与按钮控制：加载权重、计算最佳移动 |
 | `weights.bin` | 训练好的 n-tuple 权重（tuple-6；2048 目标约 262 MB，8192 目标约 662 MB） |
 | `tools/ai_selfcheck.js` | 权重自检：本地跑 N 局评估 |
+| `tools/deploy_build.js` | 拆分权重生成 `dist/`（17 分块 + 清单），Cloudflare 部署前运行 |
+| `tools/net_check.ps1` | 网络诊断：代理连通性 / GitHub 可达性 / 出口 IP |
 
 ## 技术说明
 
