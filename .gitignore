@@ -8,3 +8,6 @@ dist/
 
 # Node 渚濊禆锛堟湰椤圭洰闆朵緷璧栵紝闃插尽鎬ф帓闄わ級
 node_modules/
+
+# wrangler 本地缓存（含账号信息，不进版本库）
+.wrangler/

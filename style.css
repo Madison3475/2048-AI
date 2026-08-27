@@ -793,3 +793,217 @@ h1 {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* ---------- AI 复盘评价 ---------- */
+.secondary-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(98, 217, 165, 0.1);
+  color: #62d9a5;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0;
+  transition: background 150ms ease, transform 100ms ease;
+}
+
+.secondary-btn:hover {
+  background: rgba(98, 217, 165, 0.2);
+}
+
+.secondary-btn:active {
+  transform: scale(0.96);
+}
+
+.review-overlay {
+  z-index: 30;
+}
+
+.review-panel {
+  width: min(92%, 420px);
+  max-width: 92%;
+  max-height: 88%;
+  padding: 20px 22px;
+  align-items: stretch;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.review-head h2 {
+  font-size: 22px;
+}
+
+.review-loading {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 14px 0;
+}
+
+.review-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.review-score {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  color: #62d9a5;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 20px rgba(98, 217, 165, 0.3);
+}
+
+.review-grade {
+  min-width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0c1014;
+  background: #ffd166;
+  border-radius: 12px;
+}
+
+.review-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.review-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  background: #1b232b;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.rm-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.rm-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-comment {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #b9c5ce;
+  text-align: left;
+}
+
+.review-subtitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+.review-faults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-fault {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #1b232b;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.fault-head {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e8a06c;
+}
+
+.fault-tip {
+  font-size: 12px;
+  font-weight: 800;
+  color: #62d9a5;
+  white-space: nowrap;
+}
+
+/* mini 棋盘：失误时刻的盘面（复用 t-* 配色变量） */
+.mini-board {
+  display: grid;
+  grid-template-columns: repeat(4, 18px);
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mini-cell {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--tile-bg, #242d35);
+  color: var(--tile-color, #9aa7b1);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-cell.t-2 { --tile-bg: #d9e3eb; --tile-color: #19232c; }
+.mini-cell.t-4 { --tile-bg: #bfe6d7; --tile-color: #0f392d; }
+.mini-cell.t-8 { --tile-bg: #ffb26b; --tile-color: #3b210b; }
+.mini-cell.t-16 { --tile-bg: #ff8d63; --tile-color: #3a1706; }
+.mini-cell.t-32 { --tile-bg: #ff6f8f; --tile-color: #3b0719; }
+.mini-cell.t-64 { --tile-bg: #e85d6f; --tile-color: #ffffff; }
+.mini-cell.t-128 { --tile-bg: #b995ff; --tile-color: #241244; }
+.mini-cell.t-256 { --tile-bg: #62d7ff; --tile-color: #062d3d; }
+.mini-cell.t-512 { --tile-bg: #4ce3a3; --tile-color: #073522; }
+.mini-cell.t-1024 { --tile-bg: #ffd166; --tile-color: #3a2800; }
+.mini-cell.t-2048 { --tile-bg: #ff5d8f; --tile-color: #ffffff; }
+
+.mini-cell:empty {
+  background: #242d35;
+}
+
+.review-done {
+  align-self: center;
+  min-width: 120px;
+}
+
+@media (max-width: 460px) {
+  .review-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .review-score {
+    font-size: 44px;
+  }
+
+  .review-fault {
+    flex-wrap: wrap;
+  }
+}

@@ -304,48 +304,141 @@
     }
   }
 
+  let loadPromise = null;
   async function load(url, onProgress) {
-    let ab = null;
-    try {
-      const res = await fetch(url);
-      if (res && res.ok) {
-        ab = await res.arrayBuffer();
-        if (isWeightBinary(ab)) return loadFromBuffer(ab);
-        ab = null; // 200 但内容不是权重（HTML 回退页），按缺失处理
+    // 首次调用才真正下载，之后直接复用；失败时清除缓存以便重试
+    if (loadPromise) return loadPromise;
+    loadPromise = (async function () {
+      let ab = null;
+      try {
+        const res = await fetch(url);
+        if (res && res.ok) {
+          ab = await res.arrayBuffer();
+          if (isWeightBinary(ab)) return loadFromBuffer(ab);
+          ab = null; // 200 但内容不是权重（HTML 回退页），按缺失处理
+        }
+      } catch (err) {
+        ab = null;
       }
+      // 分块回退（Cloudflare Pages 单文件 25MiB 上限，权重拆成多块部署）
+      const manifestUrl = url + '.json';
+      const mr = await fetch(manifestUrl);
+      if (!mr.ok) throw new Error('HTTP ' + mr.status + '：' + url);
+      const manifest = await mr.json();
+      const base = url.substring(0, url.lastIndexOf('/') + 1);
+      // 分批并发下载（每批 6 个），避免大量并行大连接被中途掐断
+      const CHUNK_CONCURRENCY = 6;
+      let doneChunks = 0;
+      const bufs = [];
+      for (let i = 0; i < manifest.files.length; i += CHUNK_CONCURRENCY) {
+        const batch = manifest.files.slice(i, i + CHUNK_CONCURRENCY);
+        const arr = await Promise.all(batch.map(function (f) {
+          return fetchChunk(base + f, 3).then(function (b) {
+            doneChunks++;
+            if (onProgress) onProgress(doneChunks, manifest.files.length);
+            return b;
+          });
+        }));
+        for (const b of arr) bufs.push(b);
+      }
+      const out = new Uint8Array(manifest.totalBytes);
+      let off = 0;
+      for (const b of bufs) {
+        out.set(new Uint8Array(b), off);
+        off += b.byteLength;
+      }
+      if (off !== manifest.totalBytes) throw new Error('分块总大小不匹配');
+      if (!isWeightBinary(out.buffer)) throw new Error('拼接后的数据不是有效权重');
+      return loadFromBuffer(out.buffer);
+    })();
+    try {
+      return await loadPromise;
     } catch (err) {
-      ab = null;
+      loadPromise = null;
+      throw err;
     }
-    // 分块回退（Cloudflare Pages 单文件 25MiB 上限，权重拆成多块部署）
-    const manifestUrl = url + '.json';
-    const mr = await fetch(manifestUrl);
-    if (!mr.ok) throw new Error('HTTP ' + mr.status + '：' + url);
-    const manifest = await mr.json();
-    const base = url.substring(0, url.lastIndexOf('/') + 1);
-    // 分批并发下载（每批 6 个），避免大量并行大连接被中途掐断
-    const CHUNK_CONCURRENCY = 6;
-    let doneChunks = 0;
-    const bufs = [];
-    for (let i = 0; i < manifest.files.length; i += CHUNK_CONCURRENCY) {
-      const batch = manifest.files.slice(i, i + CHUNK_CONCURRENCY);
-      const arr = await Promise.all(batch.map(function (f) {
-        return fetchChunk(base + f, 3).then(function (b) {
-          doneChunks++;
-          if (onProgress) onProgress(doneChunks, manifest.files.length);
-          return b;
-        });
-      }));
-      for (const b of arr) bufs.push(b);
+  }
+
+  /* ---------- 复盘评价 ---------- */
+  const DIR_NAMES = ['向左', '向上', '向右', '向下'];
+
+  /* 指定方向的 Q 值（与 bestMove 相同公式）；无效移动返回 null */
+  function moveQ(values, dir, depth) {
+    const b = values.map(function (row) { return row.slice(); });
+    const res = moveBoard(b, dir);
+    if (sameBoard(b, res.board)) return null;
+    const q = heavyModel
+      ? res.gain + Math.max(valueOf(res.board), 0)
+      : res.gain + GAMMA * expectedAfter(res.board, depth || 0);
+    return { q: q, gain: res.gain, board: res.board };
+  }
+
+  function maxTileOf(b) {
+    let m = 0;
+    for (const row of b) for (const v of row) if (v > m) m = v;
+    return m;
+  }
+
+  /* 综合评分：最大方块 55 分 + AI 推荐率 30 分 + 损失控制 15 分 */
+  function compositeScore(maxTile, rate, lossRatio, moves) {
+    const log2t = maxTile <= 0 ? 0 : Math.round(Math.log2(maxTile));
+    const mt = Math.max(0, Math.min(100, (log2t - 6) / 8 * 100)); // 512≈0 分 → 16384=100 分
+    const s = 0.55 * mt + 30 * rate + 15 * (1 - Math.min(1, lossRatio * 2.5));
+    return Math.max(0, Math.min(100, Math.round(s)));
+  }
+
+  function gradeOf(s) {
+    return s >= 85 ? 'S' : s >= 70 ? 'A' : s >= 55 ? 'B' : s >= 40 ? 'C' : 'D';
+  }
+
+  /*
+   * review(moves, depth=0)
+   * moves = [{ dir, board }] 每步的真实盘面快照（移动前）与玩家方向。
+   * 逐盘面对比 AI 推荐，输出推荐率、机会损失、关键失误 TOP3 与综合评分。
+   * 与训练时一致使用深度 0（TDL2048 模型即引擎原生 1-ply），整局毫秒级。
+   */
+  function review(moves, depth) {
+    if (!tables) throw new Error('权重未加载');
+    if (depth === undefined) depth = 0;
+    let gainSum = 0;
+    let lossSum = 0;
+    let hit = 0;
+    let maxTile = 2;
+    const steps = [];
+    for (let i = 0; i < moves.length; i++) {
+      const m = moves[i];
+      const best = bestMove(m.board, depth);
+      const pq = moveQ(m.board, m.dir, depth);
+      if (!pq) continue; // 无效移动（不该出现在日志里，防御）
+      const loss = Math.max(0, best.q - pq.q);
+      gainSum += pq.gain;
+      lossSum += loss;
+      if (best.dir === m.dir) hit++;
+      const mt = maxTileOf(m.board);
+      if (mt > maxTile) maxTile = mt;
+      steps.push({ step: i + 1, dir: m.dir, aiDir: best.dir, loss: loss, gain: pq.gain, board: m.board });
     }
-    const out = new Uint8Array(manifest.totalBytes);
-    let off = 0;
-    for (const b of bufs) {
-      out.set(new Uint8Array(b), off);
-      off += b.byteLength;
-    }
-    if (off !== manifest.totalBytes) throw new Error('分块总大小不匹配');
-    if (!isWeightBinary(out.buffer)) throw new Error('拼接后的数据不是有效权重');
-    return loadFromBuffer(out.buffer);
+    const rate = steps.length ? hit / steps.length : 0;
+    const lossRatio = gainSum > 0 ? lossSum / gainSum : 0;
+    const score = compositeScore(maxTile, rate, lossRatio, steps.length);
+    // 关键失误 TOP 3：损失明显高于平均
+    const avgLoss = steps.length ? lossSum / steps.length : 0;
+    const faults = steps
+      .filter(function (s) { return s.loss > avgLoss && s.loss > 1; })
+      .sort(function (a, b) { return b.loss - a.loss; })
+      .slice(0, 3)
+      .map(function (s) { return { step: s.step, dir: s.dir, aiDir: s.aiDir, loss: s.loss, board: s.board }; });
+    return {
+      score: score,
+      grade: gradeOf(score),
+      maxTile: maxTile,
+      moves: steps.length,
+      aiRate: rate,
+      lossSum: lossSum,
+      gainSum: gainSum,
+      faults: faults,
+      steps: steps
+    };
   }
 
   function isReady() {
@@ -356,6 +449,7 @@
     load: load,
     loadFromBuffer: loadFromBuffer,
     bestMove: bestMove,
+    review: review,
     isReady: isReady,
     tupleCount: TUPLES.length,
     base: function () { return BASE; },

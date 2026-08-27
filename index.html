@@ -98,10 +98,35 @@
             <input class="name-input" id="player-name" type="text" maxlength="12" placeholder="输入名字" autocomplete="off">
             <button class="primary-btn" type="submit">保存成绩</button>
           </form>
+          <button class="secondary-btn hidden" id="review-btn" type="button">AI 复盘评价</button>
           <div class="overlay-actions">
             <button class="ghost-btn" id="overlay-continue" type="button">继续挑战</button>
             <button class="primary-btn" id="overlay-new" type="button">再来一局</button>
           </div>
+        </div>
+      </div>
+<!-- AI 复盘面板 -->
+      <div class="overlay review-overlay hidden" id="review-overlay">
+        <div class="overlay-panel review-panel" role="dialog" aria-modal="true">
+          <div class="review-head">
+            <h2>AI 复盘评价</h2>
+            <button class="icon-btn" id="review-close" type="button" title="关闭" aria-label="关闭复盘">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
+            </button>
+          </div>
+          <p class="review-loading" id="review-loading">AI 分析中…</p>
+          <div class="review-score-row hidden">
+            <span class="review-score" id="review-score">0</span>
+            <span class="review-grade" id="review-grade">B</span>
+          </div>
+          <div class="review-metrics hidden" id="review-metrics"></div>
+          <p class="review-comment hidden" id="review-comment"></p>
+          <div class="review-subtitle hidden" id="review-subtitle">关键失误</div>
+          <div class="review-faults hidden" id="review-faults"></div>
+          <button class="ghost-btn review-done" id="review-done" type="button">知道了</button>
         </div>
       </div>
 <!-- 排行榜弹窗 -->

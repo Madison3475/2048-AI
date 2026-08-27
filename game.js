@@ -42,6 +42,17 @@
   const leaderboardDone = document.getElementById('leaderboard-done');
   const saveForm = document.getElementById('save-form');
   const playerName = document.getElementById('player-name');
+  const reviewBtn = document.getElementById('review-btn');
+  const reviewOverlay = document.getElementById('review-overlay');
+  const reviewScore = document.getElementById('review-score');
+  const reviewGrade = document.getElementById('review-grade');
+  const reviewMetrics = document.getElementById('review-metrics');
+  const reviewComment = document.getElementById('review-comment');
+  const reviewLoading = document.getElementById('review-loading');
+  const reviewSubtitle = document.getElementById('review-subtitle');
+  const reviewFaults = document.getElementById('review-faults');
+  const reviewClose = document.getElementById('review-close');
+  const reviewDone = document.getElementById('review-done');
 
   /* ---------- 游戏状态 ---------- */
   const tileById = new Map();
@@ -61,6 +72,7 @@
   let lastScore = 0; // 游戏结束时的得分快照（用于保存排行榜）
   let lastMaxTile = 0; // 游戏结束时的最大方块快照
   let scoreSubmitted = false; // 防止同一次结算重复提交成绩
+  let moveLog = []; // 盘子复盘日志：每步 { dir, board(移动前真实盘面) }，撤销时同步回退
 
   /* ---------- 本地存储 ----------
    * 读写失败时静默降级（如隐私模式），游戏仍可在内存中运行。 */
@@ -297,9 +309,10 @@
     // 没有任何方块发生移动或合并，本次按键无效
     if (!moves.length && !merges.length) return;
 
-    // 只有有效移动才进入撤销栈（上限 80 步）
+    // 只有有效移动才进入撤销栈（上限 80 步）与复盘日志
     history.push({ values: before, score: score, wonShown: wonShown });
     if (history.length > 80) history.shift();
+    moveLog.push({ dir: dir, board: before });
     updateUndoState();
 
     // 切换新棋盘，并播放方块位移动画
@@ -384,6 +397,7 @@
     lastMaxTile = currentMaxTile();
     scoreSubmitted = false;
     saveForm.classList.toggle('hidden', kind !== 'over');
+    reviewBtn.classList.toggle('hidden', kind !== 'over');
     if (kind === 'over') playerName.value = readStorage(STORAGE_NAME) || '';
     overlayContinue.classList.toggle('hidden', kind !== 'win');
     overlayNew.textContent = '再来一局';
@@ -535,6 +549,7 @@
       if (!data || !Array.isArray(data.values) || data.values.length !== SIZE) return false;
       nextId = 1;
       renderFromValues(data.values);
+      moveLog = [];
       score = Number(data.score) || 0;
       over = Boolean(data.over);
       wonShown = Boolean(data.wonShown);
@@ -559,8 +574,10 @@
     clearTiles();
     hideOverlay();
     closeLeaderboard();
+    closeReview();
     addRandom();
     addRandom();
+    moveLog = [];
     updateScore();
     updateUndoState();
     saveState();
@@ -571,6 +588,7 @@
   function undo() {
     if (busy || !history.length) return;
     const snapshot = history.pop();
+    moveLog.pop();
     renderFromValues(snapshot.values);
     score = snapshot.score;
     wonShown = snapshot.wonShown;
@@ -749,6 +767,129 @@
     isOver: function () { return over; },
     overlayVisible: function () { return !overlay.classList.contains('hidden'); },
     continueGame: hideOverlay,
-    newGame: function () { newGame(); }
+    newGame: function () { newGame(); },
+    getReviewData: function () { return moveLog.slice(); }
   };
+
+  /* ---------- AI 复盘评价 ----------
+   * 游戏结束后：回放全剧，对比 AI 推荐，输出综合评分与关键失误。 */
+  const DIR_TEXT = ['左', '上', '右', '下'];
+  const GRADE_TEXT = {
+    S: '宗师级对局，每一步都近乎完美！',
+    A: '大师级表现，失误极少，节奏掌控出色。',
+    B: '稳健的发挥，整体策略正确，细节仍有打磨空间。',
+    C: '还在成长期，建议对照关键失误逐步优化。',
+    D: '刚入门的水平，多玩几局、多与 AI 建议对照会进步很快。'
+  };
+
+  function renderMiniBoard(el, values) {
+    el.innerHTML = '';
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const v = values[r][c];
+        const d = document.createElement('div');
+        d.className = 'mini-cell' + (v ? ' ' + valueClass(v) : '');
+        d.textContent = v ? String(v) : '';
+        el.appendChild(d);
+      }
+    }
+  }
+
+  /* 按评分生成中文点评（模板句式）。 */
+  function buildComment(r) {
+    const parts = [GRADE_TEXT[r.grade] || ''];
+    parts.push('最大方块 ' + r.maxTile + '，' + r.moves + ' 步，得分约 ' + Math.round(r.gainSum) + '。');
+    const rate = Math.round(r.aiRate * 100);
+    if (rate >= 70) parts.push('AI 推荐步吻合率 ' + rate + '%，与最优策略高度一致。');
+    else if (rate >= 50) parts.push('AI 推荐步吻合率 ' + rate + '%，整体方向正确，步序上仍有优化空间。');
+    else parts.push('AI 推荐步吻合率 ' + rate + '%，与最优策略差距较大，请重点参考下方关键失误。');
+    const lossPct = Math.round(r.lossSum / Math.max(1, r.gainSum) * 100);
+    if (r.faults.length) {
+      const top = r.faults[0];
+      parts.push('最大失误在第 ' + top.step + ' 步（机会损失约 ' + Math.round(top.loss) + ' 分），累计机会损失占得分 ' + lossPct + '%。');
+    } else {
+      parts.push('全程几乎无明显失误，节奏控制极佳！');
+    }
+    return parts.join(' ');
+  }
+
+  function closeReview() {
+    reviewOverlay.classList.add('hidden');
+  }
+
+  function openReview() {
+    const ai = window.NTuple2048AI;
+    if (!ai) {
+      setReviewText('AI 引擎未加载，请刷新页面重试。');
+      return;
+    }
+    reviewOverlay.classList.remove('hidden');
+    reviewLoading.textContent = '正在加载 AI 权重（约 268 MB）…';
+    reviewLoading.classList.remove('hidden');
+    reviewScore.parentElement.classList.add('hidden');
+    reviewMetrics.classList.add('hidden');
+    reviewComment.classList.add('hidden');
+    reviewSubtitle.classList.add('hidden');
+    reviewFaults.classList.add('hidden');
+
+    // 首次复盘可能需要加载权重；已加载则立即复用（ai.js 内部有缓存）
+    ai.load('weights.bin', function (done, total) {
+      reviewLoading.textContent = '正在加载 AI 权重… ' + done + '/' + total;
+    }).then(function () {
+      const data = window.Game2048.getReviewData();
+      if (!data || !data.length) {
+        reviewLoading.textContent = '本局没有可复盘的走法。';
+        return;
+      }
+      reviewLoading.textContent = 'AI 分析中…';
+      setTimeout(function () {
+        const r = ai.review(data);
+        reviewScore.textContent = String(r.score);
+        reviewGrade.textContent = r.grade;
+        reviewScore.parentElement.classList.remove('hidden');
+        reviewMetrics.innerHTML =
+          '<div class="review-metric"><span class="rm-label">最大方块</span><span class="rm-value">' + r.maxTile + '</span></div>' +
+          '<div class="review-metric"><span class="rm-label">AI 吻合率</span><span class="rm-value">' + Math.round(r.aiRate * 100) + '%</span></div>' +
+          '<div class="review-metric"><span class="rm-label">机会损失</span><span class="rm-value">' + Math.round(r.lossSum) + '</span></div>' +
+          '<div class="review-metric"><span class="rm-label">步数</span><span class="rm-value">' + r.moves + '</span></div>';
+        reviewMetrics.classList.remove('hidden');
+        reviewComment.textContent = buildComment(r);
+        reviewComment.classList.remove('hidden');
+        reviewFaults.innerHTML = '';
+        if (r.faults.length) {
+          reviewSubtitle.classList.remove('hidden');
+          r.faults.forEach(function (f) {
+            const item = document.createElement('div');
+            item.className = 'review-fault';
+            const head = document.createElement('div');
+            head.className = 'fault-head';
+            head.textContent = '第 ' + f.step + ' 步 · 机会损失 ' + Math.round(f.loss) + ' 分';
+            const board = document.createElement('div');
+            board.className = 'mini-board';
+            renderMiniBoard(board, f.board);
+            const tip = document.createElement('div');
+            tip.className = 'fault-tip';
+            tip.textContent = 'AI 建议：向' + DIR_TEXT[f.aiDir];
+            item.appendChild(head);
+            item.appendChild(board);
+            item.appendChild(tip);
+            reviewFaults.appendChild(item);
+          });
+          reviewFaults.classList.remove('hidden');
+        }
+        reviewLoading.classList.add('hidden');
+      }, 30);
+    }).catch(function (err) {
+      reviewLoading.textContent = 'AI 权重加载失败：' + (err && err.message ? err.message : String(err)) + '（关闭后点 AI 提示重试）';
+    });
+  }
+
+  function setReviewText(text) {
+    reviewLoading.textContent = text;
+    reviewLoading.classList.remove('hidden');
+  }
+
+  reviewBtn.addEventListener('click', openReview);
+  reviewClose.addEventListener('click', closeReview);
+  reviewDone.addEventListener('click', closeReview);
 })();
