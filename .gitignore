@@ -11,3 +11,6 @@ node_modules/
 
 # wrangler 本地缓存（含账号信息，不进版本库）
 .wrangler/
+
+# 本机专用脚本（非项目一部分）
+tools/net_check.ps1
