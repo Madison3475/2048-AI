@@ -85,8 +85,6 @@ python -m http.server 8765
 
 ## Cloudflare Pages 部署
 
-线上站点：<https://2048.clouddance.me/>（自定义域名，绑定 Pages 项目 `2048`）。
-
 权重整包 268 MB 超过 Cloudflare Pages 单文件 25 MiB 上限，所以部署前先用构建脚本把权重拆成 16 MiB 分块：
 
 ```bash
